@@ -1,10 +1,16 @@
-# this file will contain the loop that executes periodic checks
+# this file contains the loop that executes periodic checks
 from utils import *
 from core import check_security
 from time import sleep
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
-conn = ZKConnection(ip="192.168.1.26", port=4370, timeout=165, ommit_ping=False)
+IP = os.getenv("ZK_IP")
+PORT = int(os.getenv("ZK_PORT", 4370))
+
+conn = ZKConnection(ip=IP, port=PORT, timeout=165, ommit_ping=False)
 admin_count = 2
 allowed_time_range = (8, 18)
 
