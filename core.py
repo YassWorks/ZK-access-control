@@ -43,7 +43,6 @@ def check_attendances(conn: ZKConnection, allowed_time_range: tuple = (8, 18), f
         
         for att in check_range:
             user_times[att.user_id].append(att.timestamp)
-        print(f"User times: {user_times}")
         
         # Check for spam (per user)
         for user_id, times in user_times.items():
@@ -55,15 +54,16 @@ def check_attendances(conn: ZKConnection, allowed_time_range: tuple = (8, 18), f
                     # send whatsapp msg
 
 
-def general_check(zk: ZKConnection):
+def general_check(conn: ZKConnection):
     
-    device_time = zk.get_time()
-    system_time = datetime.now()
-    time_diff = abs((device_time - system_time).total_seconds())
-    
-    if time_diff > 300: # 5 minutes tolerance
-        print(f"Security Alert: Device time drift detected ({time_diff} seconds)")
-        # send whatsapp msg
+    with conn as zk:
+        device_time = zk.get_time()
+        system_time = datetime.now()
+        time_diff = abs((device_time - system_time).total_seconds())
+        
+        if time_diff > 300: # 5 minutes tolerance
+            print(f"Security Alert: Device time drift detected ({time_diff} seconds)")
+            # send whatsapp msg
 
 
 def check_users(conn: ZKConnection, admin_count: int, first_check: bool):
@@ -86,9 +86,3 @@ def check_users(conn: ZKConnection, admin_count: int, first_check: bool):
                 if not user.password or user.password == '':
                     print(f"Security Alert: User {user.user_id} has no password set.")
                     # send whatsapp msg
-
-
-if __name__ == "__main__":
-    # Example usage
-    zk = ZKConnection(ip="192.168.1.26", port=4370, timeout=165, ommit_ping=True)
-    check_security(zk)
