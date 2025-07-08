@@ -1,0 +1,1 @@
+python -m scripts.monitoring_script

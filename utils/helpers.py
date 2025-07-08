@@ -2,6 +2,7 @@ from zk import ZK
 from zk.base import Attendance
 from zk.base import User
 from typing import Optional
+from datetime import datetime
 
 
 # Context manager to use 'with' block
@@ -49,3 +50,22 @@ def get_users(conn: ZKConnection) -> Optional[list[User]]:
         
         users = zk.get_users()
         return users
+
+
+def parse_time(hour):
+    """
+    Parse various time formats to a datetime.time object.
+    Supports: int (hour), string (hour or HH:MM), float (hour with fractional minutes)
+    """
+    if isinstance(hour, int):
+        return datetime.strptime(f"{hour}:00:00", "%H:%M:%S").time()
+    elif isinstance(hour, str) and hour.isdigit():
+        return datetime.strptime(f"{hour}:00:00", "%H:%M:%S").time()
+    elif isinstance(hour, str) and ":" in hour:
+        return datetime.strptime(hour, "%H:%M").time()
+    elif isinstance(hour, float):
+        hours = int(hour)
+        minutes = int((hour - hours) * 60)
+        return datetime.strptime(f"{hours}:{minutes}:00", "%H:%M:%S").time()
+    else:
+        raise ValueError(f"Invalid time format: {hour}")

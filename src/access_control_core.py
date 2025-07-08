@@ -1,8 +1,8 @@
-from utils.helpers import ZKConnection
+from utils.helpers import ZKConnection, parse_time
 from datetime import datetime
 
 
-def get_name(user_id, all_users, all_ids):
+def get_name(user_id, all_users: list, all_ids: list):
     # we'll exploit the fact that all_ids is sorted
     l, r = 0, len(all_ids) - 1
     while l <= r:
@@ -16,11 +16,12 @@ def get_name(user_id, all_users, all_ids):
     return None
 
 
-def allow_access(conn, user_id, whitelist=None, blacklist=None, allowed_hours=None):
+def allow_access(conn, user_id, whitelist: list[str] = None, blacklist: list[str] = None, allowed_hours: tuple = None):
     """
     Main access control logic - determines if user should be allowed access.
     Returns True if access should be granted, False otherwise.
     """
+    
     current_time = datetime.now().time()
     
     with conn as zk:
@@ -36,31 +37,32 @@ def allow_access(conn, user_id, whitelist=None, blacklist=None, allowed_hours=No
         user_name = get_name(user_id, users, ids)
         
         # check if user is whitelisted
-        if user_name in whitelist:
+        if whitelist and user_name in whitelist:
             print(f"Access GRANTED for user {user_id} (whitelisted)")
             return True
         
         # check if user is blacklisted
-        if user_name in blacklist:
+        if blacklist and user_name in blacklist:
             print(f"Access DENIED for user {user_id} (blacklisted)")
             return False
     
-    # normal access
-    # just need to check the time
-    def parse_time(hour):
-        if isinstance(hour, int):
-            return datetime.strptime(f"{hour}:00:00", "%H:%M:%S").time()
-        elif isinstance(hour, str) and ":" in hour:
-            return datetime.strptime(hour, "%H:%M").time()
-        elif isinstance(hour, float):
-            hours = int(hour)
-            minutes = int((hour - hours) * 60)
-            return datetime.strptime(f"{hours}:{minutes}:00", "%H:%M:%S").time()
-        else:
-            raise ValueError(f"Invalid time format: {hour}")
-
-    start_time = parse_time(allowed_hours[0])
-    end_time = parse_time(allowed_hours[1])
+    # If no time restrictions are set, allow access
+    if not allowed_hours:
+        print(f"Access GRANTED for user {user_id} (no time restrictions)")
+        return True
+    
+    # Validate allowed_hours format
+    if len(allowed_hours) != 2:
+        print(f"Invalid allowed_hours format. Expected tuple of 2 elements, got {len(allowed_hours)}.")
+        return False
+    
+    # normal access - check the time
+    try:
+        start_time = parse_time(allowed_hours[0])
+        end_time = parse_time(allowed_hours[1])
+    except ValueError as e:
+        print(f"Error parsing time format: {e}")
+        return False
 
     if start_time <= current_time <= end_time:
         print(f"Access GRANTED for user {user_id} (within allowed time range)")

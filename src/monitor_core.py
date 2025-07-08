@@ -1,23 +1,38 @@
 from utils import *
+from utils.helpers import parse_time
 from collections import defaultdict
 from datetime import datetime
 from zk.base import const
 
 
-def check_security(conn: ZKConnection, admin_count: int, allowed_time_range: tuple = (8, 18), first_check: bool = False):
+def check_security(conn: ZKConnection, admin_count: int, allowed_time_range: tuple = (8, 18), first_check: bool = False, logger = None):
+    """
+    Main security check function that performs the following checks:
+    1. General device time check
+    2. User checks (admin count, password checks)
+    3. Attendance checks (time range, spam detection)
+    """
     
-    general_check(conn)
-    check_users(conn, admin_count, first_check)
-    check_attendances(conn, allowed_time_range, first_check)
+    general_check(conn, logger=logger)
+    check_users(conn, admin_count, first_check, logger=logger)
+    check_attendances(conn, allowed_time_range, first_check, logger=logger)
 
 
-def check_attendances(conn: ZKConnection, allowed_time_range: tuple = (8, 18), first_check: bool = False):
+def check_attendances(conn: ZKConnection, allowed_time_range: tuple = (8, 18), first_check: bool = False, logger = None):
+    
+    if not allowed_time_range or len(allowed_time_range) != 2:
+        print("Invalid allowed_time_range provided. Skipping attendance time checks.")
+        if logger:
+            logger.warning("Invalid allowed_time_range provided. Skipping attendance time checks.")
+        return
     
     with conn as zk:
         # check if attendances times are within the allowed range
         attendances = zk.get_attendance()
         if not attendances:
             print("No attendances found.")
+            if logger:
+                logger.warning("No attendances found.")
         
         check_range = None # attendances concerned with this iteration
         
@@ -37,25 +52,19 @@ def check_attendances(conn: ZKConnection, allowed_time_range: tuple = (8, 18), f
             
             attendance_time = attendance.timestamp.time()
             
-            def parse_time(hour):
-                if isinstance(hour, int):
-                    return datetime.strptime(f"{hour}:00:00", "%H:%M:%S").time()
-                elif isinstance(hour, str) and ":" in hour:
-                    return datetime.strptime(hour, "%H:%M").time()
-                elif isinstance(hour, float):
-                    hours = int(hour)
-                    minutes = int((hour - hours) * 60)
-                    return datetime.strptime(f"{hours}:{minutes}:00", "%H:%M:%S").time()
-                else:
-                    raise ValueError(f"Invalid time format: {hour}")
+            try:
+                start_time = parse_time(allowed_time_range[0])
+                end_time = parse_time(allowed_time_range[1])
+            except ValueError as e:
+                print(f"Error parsing time format in attendance check: {e}")
+                if logger:
+                    logger.error(f"Error parsing time format in attendance check: {e}")
+                continue
 
-            start_time = parse_time(allowed_time_range[0])
-            end_time = parse_time(allowed_time_range[1])
-
-            if start_time <= attendance_time <= end_time:
-                print("###########################################")
-                print(type(attendance_time) == type(start_time))
-                print(f"Security alert! Attendance at {attendance.timestamp} is outside the allowed range.")
+            if not (start_time <= attendance_time <= end_time):
+                print(f"Security alert! Attendance at {attendance.timestamp} is outside the allowed range ({start_time} - {end_time}).")
+                if logger:
+                    logger.warning(f"Security alert! Attendance at {attendance.timestamp} is outside the allowed range ({start_time} - {end_time}).")
                 # send whatsapp msg
         
         user_times = defaultdict(list)
@@ -70,10 +79,12 @@ def check_attendances(conn: ZKConnection, allowed_time_range: tuple = (8, 18), f
                 time_diff = (times[i] - times[i-1]).total_seconds()
                 if time_diff < 30:  # < 30 sec
                     print(f"Security Alert: Rapid consecutive entries for user {user_id}")
+                    if logger:
+                        logger.warning(f"Security Alert: Rapid consecutive entries for user {user_id}")
                     # send whatsapp msg
 
 
-def general_check(conn: ZKConnection):
+def general_check(conn: ZKConnection, logger = None):
     
     with conn as zk:
         device_time = zk.get_time()
@@ -82,10 +93,12 @@ def general_check(conn: ZKConnection):
         
         if time_diff > 300: # 5 minutes tolerance
             print(f"Security Alert: Device time drift detected ({time_diff} seconds)")
+            if logger:
+                logger.warning(f"Security Alert: Device time drift detected ({time_diff} seconds)")
             # send whatsapp msg
 
 
-def check_users(conn: ZKConnection, admin_count: int, first_check: bool):
+def check_users(conn: ZKConnection, admin_count: int, first_check: bool, logger = None):
     
     with conn as zk:
         users = zk.get_users()
@@ -96,6 +109,8 @@ def check_users(conn: ZKConnection, admin_count: int, first_check: bool):
         admin_users = [u for u in users if u.privilege == const.USER_ADMIN]
         if len(admin_users) > admin_count:
             print(f"Security Alert: Too many admin users ({len(admin_users)})")
+            if logger:
+                logger.warning(f"Security Alert: Too many admin users ({len(admin_users)})")
             # send whatsapp msg
         
         if first_check:
@@ -104,4 +119,6 @@ def check_users(conn: ZKConnection, admin_count: int, first_check: bool):
             for user in users:
                 if not user.password or user.password == '':
                     print(f"Security Alert: User {user.user_id} has no password set.")
+                    if logger:
+                        logger.warning(f"Security Alert: User {user.user_id} has no password set.")
                     # send whatsapp msg
