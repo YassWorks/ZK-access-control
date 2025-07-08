@@ -1,21 +1,5 @@
 from utils.helpers import ZKConnection
-from dotenv import load_dotenv
 from datetime import datetime
-import os
-
-
-load_dotenv()
-
-
-# Device connection configuration
-IP = os.getenv("ZK_IP")
-PORT = int(os.getenv("ZK_PORT"))
-
-
-# User access rules configuration
-BLACK_LISTED = ["user_x"]  # Users who cannot enter at all
-WHITE_LISTED = ["user_z"]  # Users who can always enter (admins)
-ALLOWED_HOURS = (8, 18)    # Allowed access hours (8 AM to 6 PM). Can be int 8 or str "08:36" or float 17.5 (17:30)
 
 
 def get_name(user_id, all_users, all_ids):
@@ -32,7 +16,7 @@ def get_name(user_id, all_users, all_ids):
     return None
 
 
-def allow_access(conn, user_id, time):
+def allow_access(conn, user_id, whitelist=None, blacklist=None, allowed_hours=None):
     """
     Main access control logic - determines if user should be allowed access.
     Returns True if access should be granted, False otherwise.
@@ -52,12 +36,12 @@ def allow_access(conn, user_id, time):
         user_name = get_name(user_id, users, ids)
         
         # check if user is whitelisted
-        if user_name in WHITE_LISTED:
+        if user_name in whitelist:
             print(f"Access GRANTED for user {user_id} (whitelisted)")
             return True
         
         # check if user is blacklisted
-        if user_name in BLACK_LISTED:
+        if user_name in blacklist:
             print(f"Access DENIED for user {user_id} (blacklisted)")
             return False
     
@@ -75,8 +59,8 @@ def allow_access(conn, user_id, time):
         else:
             raise ValueError(f"Invalid time format: {hour}")
 
-    start_time = parse_time(ALLOWED_HOURS[0])
-    end_time = parse_time(ALLOWED_HOURS[1])
+    start_time = parse_time(allowed_hours[0])
+    end_time = parse_time(allowed_hours[1])
 
     if start_time <= current_time <= end_time:
         print(f"Access GRANTED for user {user_id} (within allowed time range)")
@@ -96,7 +80,7 @@ def enable_device_access(conn):
         return False
 
 
-def real_time_access_control(conn: ZKConnection):
+def real_time_access_control(conn: ZKConnection, logger=None, whitelist=None, blacklist=None, allowed_hours=None):
     """
     Real-time access control system that monitors device events and enforces rules.
     This function continuously listens for access attempts and applies security rules.
@@ -105,6 +89,8 @@ def real_time_access_control(conn: ZKConnection):
     with conn as zk:
 
         print(" LIVE CAPTURE ".center(35, "="))
+        if logger:
+            logger.info("Starting live capture for access control")
         
         for attendance in zk.live_capture():
                 
@@ -114,15 +100,17 @@ def real_time_access_control(conn: ZKConnection):
             user_id = attendance.user_id
             
             # Apply access control rules
-            if allow_access(conn, user_id):
+            if allow_access(conn, user_id, whitelist=whitelist, blacklist=blacklist, allowed_hours=allowed_hours):
                 print(f"ACCESS GRANTED - Unlocking door for user {user_id}")
                 enable_device_access(conn)
                 
-                # Log successful access
+                if logger:
+                    logger.info(f"Access granted for user {user_id} at {datetime.now()}")
                 
             else:
                 print(f"ACCESS DENIED - Door remains locked for user {user_id}")
                 
-                # Log denied access
+                if logger:
+                    logger.info(f"Access denied for user {user_id} at {datetime.now()}")
                 
             print("=" * 35)

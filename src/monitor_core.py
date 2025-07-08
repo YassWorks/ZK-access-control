@@ -34,8 +34,27 @@ def check_attendances(conn: ZKConnection, allowed_time_range: tuple = (8, 18), f
                 check_range = attendances[:3]
         
         for attendance in check_range:
-            attendance_time = attendance.timestamp.hour
-            if attendance_time < allowed_time_range[0] or attendance_time > allowed_time_range[1]:
+            
+            attendance_time = attendance.timestamp.time()
+            
+            def parse_time(hour):
+                if isinstance(hour, int):
+                    return datetime.strptime(f"{hour}:00:00", "%H:%M:%S").time()
+                elif isinstance(hour, str) and ":" in hour:
+                    return datetime.strptime(hour, "%H:%M").time()
+                elif isinstance(hour, float):
+                    hours = int(hour)
+                    minutes = int((hour - hours) * 60)
+                    return datetime.strptime(f"{hours}:{minutes}:00", "%H:%M:%S").time()
+                else:
+                    raise ValueError(f"Invalid time format: {hour}")
+
+            start_time = parse_time(allowed_time_range[0])
+            end_time = parse_time(allowed_time_range[1])
+
+            if start_time <= attendance_time <= end_time:
+                print("###########################################")
+                print(type(attendance_time) == type(start_time))
                 print(f"Security alert! Attendance at {attendance.timestamp} is outside the allowed range.")
                 # send whatsapp msg
         
