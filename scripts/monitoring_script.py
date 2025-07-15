@@ -5,8 +5,8 @@ from time import sleep
 from dotenv import load_dotenv
 import os
 
-load_dotenv()
 logger = get_logger()
+load_dotenv()
 
 IP = os.getenv("ZK_IP")
 PORT = int(os.getenv("ZK_PORT", 4370))

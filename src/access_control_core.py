@@ -1,22 +1,22 @@
 from utils.helpers import ZKConnection, parse_time
 from datetime import datetime
-
+import traceback
+from zk import ZK
+import time
 
 def get_name(user_id, all_users: list, all_ids: list):
-    # we'll exploit the fact that all_ids is sorted
-    l, r = 0, len(all_ids) - 1
-    while l <= r:
-        mid = (l + r) // 2
-        if all_ids[mid] == user_id:
-            return all_users[mid].name
-        elif all_ids[mid] < user_id:
-            l = mid + 1
-        else:
-            r = mid - 1
-    return None
+    """
+    Helper function to get the name of a user by their ID.
+    Returns the name if found, otherwise returns the ID itself.
+    """
+    try:
+        index = all_ids.index(user_id)
+        return all_users[index].name
+    except ValueError:
+        return None
 
 
-def allow_access(conn, user_id, whitelist: list[str] = None, blacklist: list[str] = None, allowed_hours: tuple = None):
+def allow_access(zk: ZK, user_id, whitelist: list[str] = None, blacklist: list[str] = None, allowed_hours: tuple = None):
     """
     Main access control logic - determines if user should be allowed access.
     Returns True if access should be granted, False otherwise.
@@ -24,34 +24,33 @@ def allow_access(conn, user_id, whitelist: list[str] = None, blacklist: list[str
     
     current_time = datetime.now().time()
     
-    with conn as zk:
-        
-        users = zk.get_users()
-        ids = [user.user_id for user in users]
-        
-        # check if user exists
-        if user_id not in ids:
-            print(f"User {user_id} does not exist in the system.")
-            return False
-        
-        user_name = get_name(user_id, users, ids)
-        
-        # check if user is whitelisted
-        if whitelist and user_name in whitelist:
-            print(f"Access GRANTED for user {user_id} (whitelisted)")
-            return True
-        
-        # check if user is blacklisted
-        if blacklist and user_name in blacklist:
-            print(f"Access DENIED for user {user_id} (blacklisted)")
-            return False
+    users = zk.get_users()
+    ids = [user.user_id for user in users]
     
-    # If no time restrictions are set, allow access
+    # check if user exists
+    if user_id not in ids:
+        print(f"User {user_id} does not exist in the system.")
+        return False
+    
+    user_name = get_name(user_id, users, ids)
+    print(f"Checking access for user {user_name} (ID: {user_id}) at {current_time}")
+    
+    # check if user is whitelisted
+    if whitelist and user_name in whitelist:
+        print(f"Access GRANTED for user {user_id} (whitelisted)")
+        return True
+    
+    # check if user is blacklisted
+    if blacklist and user_name in blacklist:
+        print(f"Access DENIED for user {user_id} (blacklisted)")
+        return False
+    
+    # if no time restrictions are set, allow access
     if not allowed_hours:
         print(f"Access GRANTED for user {user_id} (no time restrictions)")
         return True
     
-    # Validate allowed_hours format
+    # validate allowed_hours format
     if len(allowed_hours) != 2:
         print(f"Invalid allowed_hours format. Expected tuple of 2 elements, got {len(allowed_hours)}.")
         return False
@@ -72,9 +71,9 @@ def allow_access(conn, user_id, whitelist: list[str] = None, blacklist: list[str
         return False
 
 
-def enable_device_access(conn):
+def enable_device_access(zk: ZK):
     try:
-        conn.unlock(time=5)  # Unlock for 5 seconds
+        zk.unlock(time=5)  # Unlock for 5 seconds
         print("Device access enabled (door unlocked)")
         return True
     except Exception as e:
@@ -88,31 +87,57 @@ def real_time_access_control(conn: ZKConnection, logger=None, whitelist=None, bl
     This function continuously listens for access attempts and applies security rules.
     """
     
-    with conn as zk:
-
-        print(" LIVE CAPTURE ".center(35, "="))
-        if logger:
-            logger.info("Starting live capture for access control")
-        
-        for attendance in zk.live_capture():
+    print(" LIVE CAPTURE ".center(35, "="))
+    if logger:
+        logger.info("Starting live capture for access control")
+    
+    while True:
+        try:
+            with conn as zk:
+                for attendance in zk.live_capture():
+                    # zk.disable_device()
                 
-            if attendance is None:
-                continue
-            
-            user_id = attendance.user_id
-            
-            # Apply access control rules
-            if allow_access(conn, user_id, whitelist=whitelist, blacklist=blacklist, allowed_hours=allowed_hours):
-                print(f"ACCESS GRANTED - Unlocking door for user {user_id}")
-                enable_device_access(conn)
-                
-                if logger:
-                    logger.info(f"Access granted for user {user_id} at {datetime.now()}")
-                
-            else:
-                print(f"ACCESS DENIED - Door remains locked for user {user_id}")
-                
-                if logger:
-                    logger.info(f"Access denied for user {user_id} at {datetime.now()}")
-                
-            print("=" * 35)
+                    if attendance is None:
+                        continue
+                    
+                    user_id = attendance.user_id
+                    
+                    # Apply access control rules
+                    if allow_access(zk, user_id, whitelist=whitelist, blacklist=blacklist, allowed_hours=allowed_hours):
+                        print(f"ACCESS GRANTED - Unlocking door for user {user_id}")
+                        # zk.enable_device()
+                        enable_device_access(zk)
+                        
+                        if logger:
+                            logger.info(f"Access granted for user {user_id} at {datetime.now()}")
+                        
+                    else:
+                        print(f"ACCESS DENIED - Door remains locked for user with id {user_id}")
+                        
+                        # # Immediately disable device to prevent further access
+                        # zk.disable_device()
+                        
+                        # # Play deny sound/voice
+                        zk.test_voice(2)  # Access Denied voice
+                        
+                        # # Re-enable after a short delay
+                        # time.sleep(2)
+                        # zk.enable_device()
+                        
+                        if logger:
+                            logger.info(f"Access denied for user {user_id} at {datetime.now()}")
+                        
+                    print("=" * 35)
+                    
+        except KeyboardInterrupt:
+            print("\nAccess control monitoring stopped by user.")
+            if logger:
+                logger.info("Access control monitoring stopped by user interrupt")
+            break
+        except Exception as e:
+            error_msg = f"Error in access control monitoring: {e}"
+            print(error_msg)
+            traceback.print_exc()
+            if logger:
+                logger.error(error_msg)
+            print("Continuing monitoring...\n")

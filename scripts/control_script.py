@@ -26,8 +26,8 @@ try:
         allowed_hours=ALLOWED_HOURS,
         logger=logger
     )
-except KeyboardInterrupt:
-    print("Exiting control script...")
 except Exception as e:
     logger.error(f"An error occurred: {e}")
     print(f"An error occurred: {e}")
+finally:
+    print("Control script terminated.")

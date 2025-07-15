@@ -3,7 +3,7 @@ import os
 import time
 
 
-DEFAULT_LOGS_DIR = "./logs"
+DEFAULT_LOGS_DIR = "./logs/output"
 
 
 def get_logger(output_dir: str = None) -> logging.Logger:
@@ -24,10 +24,9 @@ def get_logger(output_dir: str = None) -> logging.Logger:
     if not logger.handlers:
         logger.setLevel(logging.INFO)
         handler = logging.FileHandler(
-            (
-                output_dir
-                + '' if output_dir.endswith('/') else '/'
-                + f"log_{time.strftime('%Y%m%d_%H%M%S')}.log"
+            os.path.join(
+                output_dir,
+                f"log_{time.strftime('%Y%m%d_%H%M%S')}.log"
             ),
             mode="w",
         )
