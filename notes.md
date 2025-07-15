@@ -5,3 +5,5 @@
 
 - FOUND WORKAROUND: set "Retard de serrure de porte (s)" setting to 0
 - this will effectively make the device NEVER open the door on its own (IMPORTANT: THIS WILL RENDER THE DEVICE USELESS WHEN THE SCRIPT IS NOT ACTIVE)
+
+- The voice outout is currently misleading (saying "Accès réussis. Merci" when it shouldn't) => needs fixing too.
