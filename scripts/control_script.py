@@ -7,11 +7,11 @@ from src.access_control_core import real_time_access_control
 logger = get_logger()
 load_dotenv()
 
-# Device connection configuration
+# device connection configuration
 IP = os.getenv("ZK_IP")
 PORT = int(os.getenv("ZK_PORT"))
 
-# User access rules configuration
+# user access rules configuration
 BLACK_LISTED = list(os.getenv("BLACK_LISTED", "").split(","))
 WHITE_LISTED = list(os.getenv("WHITE_LISTED", "").split(","))
 ALLOWED_HOURS = tuple(os.getenv("ALLOWED_HOURS", "8,18").split(","))
@@ -24,7 +24,7 @@ try:
         blacklist=BLACK_LISTED,
         whitelist=WHITE_LISTED,
         allowed_hours=ALLOWED_HOURS,
-        logger=logger
+        logger=logger,
     )
 except Exception as e:
     logger.error(f"An error occurred: {e}")

@@ -3,3 +3,7 @@ test*
 .env
 output*
 logs*
+.python-version
+pyproject.toml
+uv.lock
+.venv
