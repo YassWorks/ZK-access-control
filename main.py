@@ -34,14 +34,6 @@ def root():
     return {"message": "ok"}
 
 
-app = FastAPI(title="ZKTeco Access Control and Monitoring System")
-
-
-@app.get("/")
-def root():
-    return {"message": "ok"}
-
-
 @app.get("/security-monitor/stream")
 async def security_monitor_stream(req: SecurityMonitorRequest):
     """
