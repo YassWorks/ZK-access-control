@@ -3,7 +3,7 @@ import os
 import time
 
 
-DEFAULT_LOGS_DIR = "./logs/output"
+DEFAULT_LOGS_DIR = "/tmp/logs"
 
 
 def get_logger(output_dir: str = None) -> logging.Logger:

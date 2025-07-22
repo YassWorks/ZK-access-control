@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # no buffering stdout and stderr
 ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
+WORKDIR /pyzk_api
 
 RUN apk add --no-cache \
     build-base \
@@ -20,6 +20,11 @@ RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 
 COPY . .
+
+# Create logs directory with proper permissions
+RUN mkdir -p /tmp/logs && \
+    chown -R appuser:appgroup /tmp/logs && \
+    chown -R appuser:appgroup /pyzk_api
 
 USER appuser
 

@@ -1,5 +1,5 @@
 # this file contains the loop that executes periodic checks
-from app.utils import *
+from app.utils import get_logger, ZKConnection
 from app.src.monitor_core import check_security
 from dotenv import load_dotenv
 import os

@@ -1,4 +1,4 @@
-from app.utils import *
+from app.utils import ZKConnection, get_logger
 from app.utils.helpers import parse_time
 from collections import defaultdict
 from datetime import datetime

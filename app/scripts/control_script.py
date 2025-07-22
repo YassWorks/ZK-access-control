@@ -1,5 +1,5 @@
 # this file contains the loop that manages access to door in real-time
-from app.utils import *
+from app.utils import get_logger, ZKConnection
 from dotenv import load_dotenv
 import os
 from app.src.access_control_core import real_time_access_control
