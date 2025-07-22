@@ -1,8 +1,8 @@
 # this file contains the loop that manages access to door in real-time
-from utils import *
+from app.utils import *
 from dotenv import load_dotenv
 import os
-from src.access_control_core import real_time_access_control
+from app.src.access_control_core import real_time_access_control
 
 logger = get_logger()
 load_dotenv()

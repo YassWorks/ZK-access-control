@@ -1,1 +1,1 @@
-python -m scripts.control_script
+python -m app.scripts.control_script

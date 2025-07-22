@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from src import real_time_access_control_stream, check_security_stream
-from utils import get_logger, ZKConnection
+from app.src import real_time_access_control_stream, check_security_stream
+from app.utils import get_logger, ZKConnection
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import json
@@ -48,7 +48,7 @@ async def security_monitor_stream(req: SecurityMonitorRequest):
     async def event_generator():
         async for event in check_security_stream(
             conn=conn,
-            admin_count=req,
+            admin_count=req.admin_count,
             allowed_time_range=tuple(_.strip() for _ in req.allowed_hours.split(",")),
             check_interval=req.check_interval,
             logger=logger,

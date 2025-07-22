@@ -1,4 +1,4 @@
-from utils.helpers import ZKConnection, parse_time
+from app.utils.helpers import ZKConnection, parse_time
 from datetime import datetime
 import traceback
 from zk import ZK

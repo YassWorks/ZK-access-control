@@ -1,6 +1,6 @@
 # this file contains the loop that executes periodic checks
-from utils import *
-from src.monitor_core import check_security
+from app.utils import *
+from app.src.monitor_core import check_security
 from dotenv import load_dotenv
 import os
 

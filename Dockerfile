@@ -1,0 +1,28 @@
+FROM python:3.13-alpine
+
+# no pyc files
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# no buffering stdout and stderr
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apk add --no-cache \
+    build-base \
+    && rm -rf /var/cache/apk/*
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    python -m pip install -r requirements.txt
+
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+COPY . .
+
+USER appuser
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

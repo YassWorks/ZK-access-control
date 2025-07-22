@@ -1,1 +1,1 @@
-python -m scripts.monitoring_script
+python -m app.scripts.monitoring_script
