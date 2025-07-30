@@ -1,4 +1,4 @@
-from app.utils import ZKConnection, get_logger
+from app.utils import ZKConnection
 from app.utils.helpers import parse_time
 from collections import defaultdict
 from datetime import datetime
@@ -225,6 +225,14 @@ async def check_security_stream(
     while True:
         try:
             timestamp = datetime.now().isoformat()
+            
+            # Yield start of check cycle
+            yield {
+                "event_type": "security_check_started",
+                "timestamp": timestamp,
+                "message": f"Starting security check cycle (interval: {check_interval}s)",
+                "first_check": first_check,
+            }
 
             # General device checks
             async for event in general_check_stream(conn, logger):
@@ -277,8 +285,6 @@ async def check_security_stream(
                 "error": str(e),
                 "message": error_msg,
             }
-
-            await asyncio.sleep(1)  # brief delay before retrying
 
 
 async def general_check_stream(

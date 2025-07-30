@@ -4,8 +4,14 @@ from app.utils import get_logger, ZKConnection
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import json
+import asyncio
+import os
 
-logger = get_logger()
+
+directory = os.path.dirname(os.path.abspath(__file__))
+logs_dir = os.path.join(directory, "logs")
+logger = get_logger(logs_dir)
+
 
 app = FastAPI(
     title="ZKTeco Access Control and Monitoring System",
@@ -17,7 +23,7 @@ class SecurityMonitorRequest(BaseModel):
     port: int = 4370
     admin_count: int
     allowed_hours: str = "8,18"
-    check_interval: int = 30
+    check_interval: int = 5
 
 
 class AccessControlRequest(BaseModel):
@@ -26,7 +32,6 @@ class AccessControlRequest(BaseModel):
     whitelist: str  # comma-separated list of user names that match the ones on the device e.g. "x,y"
     blacklist: str  # same as above
     allowed_hours: str = "8,18"
-    check_interval: int = 30
 
 
 @app.get("/")
@@ -41,24 +46,31 @@ async def security_monitor_stream(req: SecurityMonitorRequest):
     Returns a continuous stream of security events.
     """
 
-    # Setup connection and logger
     conn = ZKConnection(ip=req.ip, port=req.port, timeout=165, ommit_ping=False)
-    logger = get_logger()
 
     async def event_generator():
-        async for event in check_security_stream(
-            conn=conn,
-            admin_count=req.admin_count,
-            allowed_time_range=tuple(_.strip() for _ in req.allowed_hours.split(",")),
-            check_interval=req.check_interval,
-            logger=logger,
-        ):
-            # Format as Server-Sent Event
-            yield f"data: {json.dumps(event)}\n\n"
+        try:
+            async for event in check_security_stream(
+                conn=conn,
+                admin_count=req.admin_count,
+                allowed_time_range=tuple(
+                    _.strip() for _ in req.allowed_hours.split(",")
+                ),
+                check_interval=req.check_interval,
+                logger=logger,
+            ):
+                print(f"=== GOT SECURITY EVENT: {event} ===")
+                logger.info(f"Got event from security stream: {event}")
+                yield f"data: {json.dumps(event)}\n\n"
+
+        except Exception as e:
+            print(f"=== EXCEPTION IN SECURITY GENERATOR: {e} ===")
+            logger.error(f"Exception in security generator: {e}", exc_info=True)
+            yield f"data: {json.dumps({'error': str(e), 'type': 'security_generator_exception'})}\n\n"
 
     return StreamingResponse(
         event_generator(),
-        media_type="text/plain",
+        media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
@@ -74,28 +86,42 @@ async def access_control_stream(req: AccessControlRequest):
     Returns a continuous stream of access control events.
     """
 
-    # Setup connection and logger
     conn = ZKConnection(ip=req.ip, port=req.port, timeout=165, ommit_ping=False)
-    logger = get_logger()
 
     async def event_generator():
-        async for event in real_time_access_control_stream(
-            conn=conn,
-            whitelist=(_.strip() for _ in req.whitelist.split(",")),
-            blacklist=(_.strip() for _ in req.blacklist.split(",")),
-            allowed_time_range=tuple(_.strip() for _ in req.allowed_hours.split(",")),
-            check_interval=req.check_interval,
-            logger=logger,
-        ):
-            # Format as Server-Sent Event
-            yield f"data: {json.dumps(event)}\n\n"
+        try:
+            async for event in real_time_access_control_stream(
+                conn=conn,
+                whitelist=list(_.strip() for _ in req.whitelist.split(",")),
+                blacklist=list(_.strip() for _ in req.blacklist.split(",")),
+                allowed_hours=tuple(_.strip() for _ in req.allowed_hours.split(",")),
+                logger=logger,
+            ):
+                print(f"=== GOT ACCESS CONTROL EVENT: {event} ===")
+                logger.info(f"Got event from access control stream: {event}")
+                yield f"data: {json.dumps(event)}\n\n"
+
+        except Exception as e:
+            print(f"=== EXCEPTION IN ACCESS CONTROL GENERATOR: {e} ===")
+            logger.error(f"Exception in access control generator: {e}", exc_info=True)
+            yield f"data: {json.dumps({'error': str(e), 'type': 'access_control_generator_exception'})}\n\n"
 
     return StreamingResponse(
         event_generator(),
-        media_type="text/plain",
+        media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
         },
     )
+
+
+@app.get("/test-stream")
+async def test_stream():
+    async def simple_generator():
+        for i in range(5):
+            yield f"data: {json.dumps({'test': i, 'message': f'Test event {i}'})}\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(simple_generator(), media_type="text/plain")

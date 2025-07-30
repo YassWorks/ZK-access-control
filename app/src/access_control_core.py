@@ -169,7 +169,6 @@ async def real_time_access_control_stream(
     whitelist: list[str] = None,
     blacklist: list[str] = None,
     allowed_hours: tuple = None,
-    check_interval: int = 30,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Async generator version of real_time_access_control for streaming endpoints.
@@ -180,97 +179,91 @@ async def real_time_access_control_stream(
     if logger:
         logger.info("Starting live capture stream for access control")
 
-    while True:
-        try:
-            with conn as zk:
-                for attendance in zk.live_capture():
+    try:
+        with conn as zk:
+            for attendance in zk.live_capture():
 
-                    if attendance is None:
-                        continue
+                if attendance is None:
+                    continue
 
-                    user_id = attendance.user_id
-                    timestamp = datetime.now().isoformat()
+                user_id = attendance.user_id
+                timestamp = datetime.now().isoformat()
 
-                    users = zk.get_users()
-                    ids = [user.user_id for user in users]
-                    user_name = get_name(user_id, users, ids)
+                users = zk.get_users()
+                ids = [user.user_id for user in users]
+                user_name = get_name(user_id, users, ids)
 
-                    # Apply access control rules
-                    access_granted = allow_access(
-                        zk,
-                        user_id,
-                        whitelist=whitelist,
-                        blacklist=blacklist,
-                        allowed_hours=allowed_hours,
-                    )
+                # Apply access control rules
+                access_granted = allow_access(
+                    zk,
+                    user_id,
+                    whitelist=whitelist,
+                    blacklist=blacklist,
+                    allowed_hours=allowed_hours,
+                )
 
-                    if access_granted:
-                        print(f"ACCESS GRANTED - Unlocking door for user {user_id}")
-                        enable_device_access(zk)
+                if access_granted:
+                    print(f"ACCESS GRANTED - Unlocking door for user {user_id}")
+                    enable_device_access(zk)
 
-                        if logger:
-                            logger.info(
-                                f"Access granted for user {user_id} at {datetime.now()}"
-                            )
-
-                        # Yield access granted event
-                        yield {
-                            "event_type": "access_granted",
-                            "timestamp": timestamp,
-                            "user_id": user_id,
-                            "user_name": user_name,
-                            "message": f"[Access granted] - Door unlocked for user {user_id}",
-                            "door_unlocked": True,
-                        }
-
-                    else:
-                        print(
-                            f"ACCESS DENIED - Door remains locked for user with id {user_id}"
+                    if logger:
+                        logger.info(
+                            f"Access granted for user {user_id} at {datetime.now()}"
                         )
 
-                        zk.test_voice(2)  # "access denied" voice
+                    # Yield access granted event
+                    yield {
+                        "event_type": "access_granted",
+                        "timestamp": timestamp,
+                        "user_id": user_id,
+                        "user_name": user_name,
+                        "message": f"[Access granted] - Door unlocked for user {user_id}",
+                        "door_unlocked": True,
+                    }
 
-                        if logger:
-                            logger.info(
-                                f"Access denied for user {user_id} at {datetime.now()}"
-                            )
+                else:
+                    print(
+                        f"ACCESS DENIED - Door remains locked for user with id {user_id}"
+                    )
 
-                        # Yield access denied event
-                        yield {
-                            "event_type": "access_denied",
-                            "timestamp": timestamp,
-                            "user_id": user_id,
-                            "user_name": user_name,
-                            "message": f"[Access denied] - Door remains locked for user {user_id}",
-                            "door_unlocked": False,
-                        }
+                    zk.test_voice(2)  # "access denied" voice
 
-                    print("=" * 35)
+                    if logger:
+                        logger.info(
+                            f"Access denied for user {user_id} at {datetime.now()}"
+                        )
 
-                    await asyncio.sleep(check_interval)  # small delay
+                    # Yield access denied event
+                    yield {
+                        "event_type": "access_denied",
+                        "timestamp": timestamp,
+                        "user_id": user_id,
+                        "user_name": user_name,
+                        "message": f"[Access denied] - Door remains locked for user {user_id}",
+                        "door_unlocked": False,
+                    }
 
-        except KeyboardInterrupt:
-            print("\nAccess control stream stopped by user.")
-            if logger:
-                logger.info("Access control stream stopped by user interrupt")
-            yield {
-                "event_type": "system_shutdown",
-                "timestamp": datetime.now().isoformat(),
-                "message": "Access control monitoring stopped by user",
-            }
-            break
-        except Exception as e:
-            error_msg = f"Error in access control stream: {e}"
-            print(error_msg)
-            traceback.print_exc()
-            if logger:
-                logger.error(error_msg)
+                print("=" * 35)
 
-            yield {
-                "event_type": "error",
-                "timestamp": datetime.now().isoformat(),
-                "error": str(e),
-                "message": error_msg,
-            }
+    except KeyboardInterrupt:
+        print("\nAccess control stream stopped by user.")
+        if logger:
+            logger.info("Access control stream stopped by user interrupt")
+        yield {
+            "event_type": "system_shutdown",
+            "timestamp": datetime.now().isoformat(),
+            "message": "Access control monitoring stopped by user",
+        }
+    except Exception as e:
+        error_msg = f"Error in access control stream: {e}"
+        print(error_msg)
+        traceback.print_exc()
+        if logger:
+            logger.error(error_msg)
 
-            await asyncio.sleep(1)  # brief delay before retrying
+        yield {
+            "event_type": "error",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e),
+            "message": error_msg,
+        }
