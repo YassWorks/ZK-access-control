@@ -44,7 +44,7 @@ uvicorn main:app --host 0.0.0.0 --port 9000
 
 **Using Docker:**
 ```bash
-docker-compose up
+docker compose up --build
 ```
 
 ## Features
@@ -52,7 +52,7 @@ docker-compose up
 - **Real-time Access Control**: Instant approval/denial based on security rules
 - **User Management**: Whitelist/blacklist functionality
 - **Time-based Access**: Configurable access hours (supports various time formats)
-- **Security Monitoring**: Detects off-hours access and suspicious activity
+- **Security Monitoring**: Detects off-hours access and suspicious activity (historical records)
 - **Admin Monitoring**: Tracks administrator privileges and counts
 - **API Endpoints**: RESTful API with streaming support
 - **Docker Support**: Easy containerized deployment
@@ -88,6 +88,48 @@ app/
 - `GET /` - Health check
 - `GET /security-monitor/stream` - Real-time security monitoring (SSE)
 - `GET /access-control/stream` - Real-time access control events (SSE)
+
+## API Example Request Formats
+
+### Real-time Access Control Request
+- Endpoint: (POST) `http://localhost:9000/access-control/stream`
+- Headers: 
+```json
+{
+    "Content-Type": "application/json" 
+}
+```
+- Body:
+```json
+{
+    "ip": "192.168.1.100",
+    "port": 4370,
+    "whitelist": "",
+    "blacklist": "",
+    "allowed_hours": "8,18",
+}
+```
+
+### Security Monitoring Request
+- Endpoint: (POST) `http://localhost:9000/security-monitor/stream`
+- Headers: 
+```json
+{
+"Content-Type": "application/json" 
+}
+```
+- Body:
+```json
+{
+    "ip": "192.168.1.26",
+    "port": 4370,
+    "admin_count": 2,
+    "allowed_hours": "8,18",
+    "check_interval": 3
+}
+```
+
+*These requests were tested using Postman. You can import them directly or manually configure the request using the provided examples.*
 
 ## Dependencies
 

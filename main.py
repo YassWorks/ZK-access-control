@@ -38,7 +38,7 @@ def root():
     return {"message": "ok"}
 
 
-@app.get("/security-monitor/stream")
+@app.post("/security-monitor/stream")
 async def security_monitor_stream(req: SecurityMonitorRequest):
     """
     Server-Sent Events endpoint for real-time security monitoring.
@@ -78,7 +78,7 @@ async def security_monitor_stream(req: SecurityMonitorRequest):
     )
 
 
-@app.get("/access-control/stream")
+@app.post("/access-control/stream")
 async def access_control_stream(req: AccessControlRequest):
     """
     Server-Sent Events endpoint for real-time access control.
