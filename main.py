@@ -4,7 +4,6 @@ from app.utils import get_logger, ZKConnection
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import json
-import asyncio
 import os
 
 
@@ -115,13 +114,3 @@ async def access_control_stream(req: AccessControlRequest):
             "Access-Control-Allow-Origin": "*",
         },
     )
-
-
-@app.get("/test-stream")
-async def test_stream():
-    async def simple_generator():
-        for i in range(5):
-            yield f"data: {json.dumps({'test': i, 'message': f'Test event {i}'})}\n\n"
-            await asyncio.sleep(1)
-
-    return StreamingResponse(simple_generator(), media_type="text/plain")
